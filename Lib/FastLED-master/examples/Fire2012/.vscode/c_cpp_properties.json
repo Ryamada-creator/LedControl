@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/home/ryuuya/ダウンロード/arduino-1.8.9/tools/**",
+                "/home/ryuuya/ダウンロード/arduino-1.8.9/hardware/arduino/avr/**",
+                "/home/ryuuya/ダウンロード/arduino-1.8.9/libraries/**"
+            ],
+            "forcedInclude": [
+                "/home/ryuuya/ダウンロード/arduino-1.8.9/hardware/arduino/avr/cores/arduino/Arduino.h"
+            ],
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/clang-3.7",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
