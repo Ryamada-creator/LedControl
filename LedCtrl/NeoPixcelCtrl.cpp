@@ -31,10 +31,10 @@ const uint8_t _rainbowColors[][3] =
 void NeoPixcelCtrl::begin(CFastLED _neoLed, CRGB *_crgb, int lednum)
 {
     // 継承
-    c_neoPix = _neoLed;
-    c_LedCount = lednum;
-    c_cRGB = _crgb;
-    c_status = led_Ready;
+    m_neoPix = _neoLed;
+    m_LedMax = lednum;
+    m_cRGB = _crgb;
+    m_Status = led_Ready;
 
     // LED 全て消灯
     resetLed(true);
@@ -83,14 +83,14 @@ void NeoPixcelCtrl::setColor(ledColors col)
  --------------------------------------------------*/
 void NeoPixcelCtrl::AllLight(uint8_t brightless)
 {
-    c_neoPix.setBrightness(brightless);
+    m_neoPix.setBrightness(brightless);
 
-    for (int i = 0; i < c_LedCount; i++){
-        c_cRGB[i] = CRGB(m_Red, m_Green, m_Blue);
+    for (int i = 0; i < m_LedMax; i++){
+        m_cRGB[i] = CRGB(m_Red, m_Green, m_Blue);
     }
 
-    c_neoPix.show();
-    c_status = led_Finish;
+    m_neoPix.show();
+    m_Status = LedStatus::led_Finish;
 }
 
 /**  --------------------------------------------------
@@ -100,12 +100,12 @@ void NeoPixcelCtrl::AllLight(uint8_t brightless)
      --------------------------------------------------*/
 void NeoPixcelCtrl::clear()
 {
-    for (int i = 0; i < c_LedCount; i++){
-        c_cRGB[i] = CRGB(0,0,0);
+    for (int i = 0; i < m_LedMax; i++){
+        m_cRGB[i] = CRGB(0,0,0);
     }
 
-    c_neoPix.show();
-    c_status = led_Finish;
+    m_neoPix.show();
+    m_Status = LedStatus::led_Finish;
 }
 
 
@@ -120,38 +120,30 @@ bool NeoPixcelCtrl::blink(uint8_t brightless, int delaytime)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = false;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
     }
 
-    if(c_loopCount == 0){
+    // 点灯
+    if(m_LedFocus == 0) {
         setAllRGB(m_Red, m_Green, m_Blue);
-        c_neoPix.show();
     }
-    else if(c_loopCount == 1){
+    // 消灯
+    else if(m_LedFocus == 1){
         setAllRGB(0,0,0);
-        c_neoPix.show();
     }
 
-    if(millis() >= c_waitTime)
+    m_neoPix.show();
+
+    this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= 2)
     {
-        c_loopCount ++;
-        c_waitTime = millis() + delaytime;
-
-        if(c_loopCount >= 2)
-        {
-
-            c_loopCount = 0;
-            c_status = led_Finish;
-            buf = true;
-        }
+        resetLed(true);
+        buf = true;
     }
+    
     return buf;
     
 }
@@ -169,47 +161,39 @@ bool NeoPixcelCtrl::fade(uint8_t brightless, int delaytime)
     bool buf = false;
 
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = false;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
     }
 
 
-    for (int k = c_loopCount; k < 256 ; k++)
+    for (int k = m_LedFocus; k < 256 ; k++)
     {
-        if(!cyckle)
+        if(m_LightEnable)
             setAllRGB((k / 255.0) * (float)m_Red, (k / 255.0) * (float)m_Green, (k / 255.0) * (float)m_Blue);
         else
             setAllRGB((float)m_Red * ((255.0 - k)/ 255.0), (float)m_Green *((255.0 - k)/ 255.0) ,(float)m_Blue *((255.0 - k)/ 255.0));
         break;
     }
 
-    c_neoPix.show();
+    m_neoPix.show();
 
-    if(millis() >= c_waitTime)
+    this->countUpLedFocus(delaytime);
+
+
+    if(m_LedFocus >= 254 && m_LightEnable)
     {
-        c_loopCount = c_loopCount + 1;
+        // 消灯へ移行
+        m_LightEnable = false;
+        m_LedFocus = 0;
+        m_waitTime = millis() + delaytime;
+    }
 
-        if(c_loopCount >= 254 && !cyckle)
-        {
-            cyckle = true;
-            c_loopCount = 0;
-            c_waitTime = millis() + delaytime;
-        }
-        else if(c_loopCount >= 254 && cyckle)
-        {
 
-            cyckle = false;
-            c_loopCount = 0;
-            c_status = led_Finish;
-            buf = true;
-        }
-
+    if(m_LedFocus >= 254 && !m_LightEnable)
+    {
+        resetLed(true);
+        buf = true;
     }
 
     return buf;
@@ -222,49 +206,46 @@ bool NeoPixcelCtrl::fade(uint8_t brightless, int delaytime)
  * @note   
  * @param  brightless: 照度
  * @retval 終了　→　True
+ * TODO:　片道しか動かない
  --------------------------------------------------*/
 bool NeoPixcelCtrl::cycron(uint8_t brightless, int delaytime)
 {
     bool buf = false;
-
-    if(c_status != led_Running)
-    {
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        c_waitTime = millis() + delaytime;
-    }
-
     static uint8_t hue = 0;
 
-    for(int i = c_loopCount; i < c_LedCount; i++) 
+    if(m_Status != LedStatus::led_Running)
     {
-        if(!cyckle) 
-            c_cRGB[i] = CHSV(hue++, 255, 255);
-        else
-            c_cRGB[c_LedCount - i] = CHSV(hue++, 255, 255);
+        this->startUp(brightless, delaytime);
+        m_Cycron = true;
+    }
 
-        c_neoPix.show();
+    if(hue >= 255)
+        hue = 0;
+
+    if(m_Cycron) 
+        m_cRGB[m_LedFocus] = CHSV(hue++, 255, 255);
+    else
+        m_cRGB[m_LedMax - m_LedFocus] = CHSV(hue++, 255, 255);
+
+    m_neoPix.show();
         
-        // fade の効果をつける
-        for(int i = 0; i < c_LedCount; i++){
-            c_cRGB[i].nscale8(250);
-        }
-        break;
+    // fade の効果をつける
+    for(int i = 0; i < m_LedMax; i++){
+        m_cRGB[i].nscale8(250);
     }
-
     
-    if(millis() >= c_waitTime){
-        c_waitTime = millis() + delaytime;
-        c_loopCount ++;
-    }
+    this->countUpLedFocus(delaytime);
 
-    if(c_loopCount >= c_LedCount - 1)
+    if(m_LedFocus >= m_LedMax)
     {
-        c_loopCount = 0;
-        cyckle = !cyckle;
-        c_status = led_Finish;
-        buf = true;
+        m_LedFocus = 0;
+        m_Cycron = !m_Cycron;
+
+        // 終了
+        if(m_Cycron)
+        {
+            buf = true;
+        }
     }
 
     return buf;
@@ -281,41 +262,32 @@ bool NeoPixcelCtrl::turnRainbow(uint8_t brightless, int delaytime, bool revese =
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = false;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
     }
 
     static uint8_t hue = 0;
+    
+    if(hue >= 255)
+        hue = 0;
 
-    for(int i = c_loopCount; i < c_LedCount; i++)
-    {
-        if(revese) 
-            c_cRGB[i] = CHSV(hue++, 255, 255);
-        else
-            c_cRGB[c_LedCount - i] = CHSV(hue++, 255, 255);
+    if(revese) 
+        m_cRGB[m_LedFocus] = CHSV(hue++, 255, 255);
+    else
+        m_cRGB[m_LedMax - m_LedFocus] = CHSV(hue++, 255, 255);
 
-        c_neoPix.show();
-        // black show...
-        for(int i = 0; i < c_LedCount; i++){
-            c_cRGB[i].nscale8(250);
-        }
-        break;
+    m_neoPix.show();
+
+    for(int i = 0; i < m_LedMax; i++){
+        m_cRGB[i].nscale8(250);
     }
+    
+    this->countUpLedFocus(delaytime);
 
-    if(millis() >= c_waitTime){
-        c_waitTime = millis() + delaytime;
-        c_loopCount ++;
-    }
-
-    if(c_loopCount >= c_LedCount - 1)
+    if(m_LedFocus >= m_LedMax)
     {
-        c_loopCount = 0;
-        c_status = led_Finish;
+        resetLed();
         buf = true;
     }
 
@@ -329,36 +301,27 @@ bool NeoPixcelCtrl::turnRainbow(uint8_t brightless, int delaytime, bool revese =
  * @param  brightless: 
  * @retval 終了　→　True
  --------------------------------------------------*/
-bool NeoPixcelCtrl::rainbow(uint8_t brightless)
+bool NeoPixcelCtrl::rainbow(uint8_t brightless, int delaytime)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = false;
+        this->startUp(brightless);
     }
 
-    for (int k = c_loopCount; k < 256; k++)
+    for (int i = 0; i < m_LedMax; i++)
     {
-        for (int i = 0; i < c_LedCount; i++)
-        {
-            c_cRGB[i] = CHSV(k, 255, 255);
-        }
-        break;
+        m_cRGB[i] = CHSV(m_LedFocus, 255, 255);
     }
 
-    c_loopCount ++;
+    this->countUpLedFocus(delaytime);
 
-    c_neoPix.show();
+    m_neoPix.show();
 
-    if(c_loopCount >= 254)
+    if(m_LedFocus >= 255)
     {
-
-        c_loopCount = 0;
-        c_status = led_Finish;
+        resetLed(true);
         buf = true;
     }
 
@@ -378,48 +341,33 @@ bool NeoPixcelCtrl::rainbowCycle(uint8_t brightless, int delaytime,int cycleCoun
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-        c_status = led_Running;
-        c_loopCount = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
     }
 
     int colorIndex = 0;
 
-    colorIndex = c_loopCount;
+    colorIndex = m_LedFocus;
     
-    if(cyckle)
+    if(m_LightEnable)
     {
-        for (int i = 0; i < c_LedCount; i++)
+        for (int i = 0; i < m_LedMax; i++)
         {
-            c_cRGB[i] = ColorFromPalette( RainbowColors_p, colorIndex, brightless, LINEARBLEND);
+            m_cRGB[i] = ColorFromPalette( RainbowColors_p, colorIndex, brightless, LINEARBLEND);
             colorIndex = colorIndex + 3;
         }
 
-        c_neoPix.show();
-        cyckle = false;
-        c_loopCount ++;
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
+    m_LightEnable = this->countUpLedFocus(delaytime);
 
-    if(millis() >= c_waitTime)
+    if(m_LedFocus >= cycleCount)
     {
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
-
-        if(c_loopCount >= cycleCount)
-        {
-            cyckle = false;
-            c_loopCount = 0;
-            c_waitTime = 0;
-
-            c_status = led_Finish;
-
-            resetLed(true);
-            buf = true;
-        }
+        resetLed(true);
+        buf = true;
     }
 
     return buf;
@@ -440,53 +388,40 @@ bool NeoPixcelCtrl::stripOneColor(uint8_t brightless, int delaytime, int cycleCo
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_loopCount = 0;
-        cyckle = true;
-        c_neoPix.setBrightness(brightless);
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
         SetColorPalette(m_Red, m_Green, m_Blue);
         currentBlending = (doFade) ? LINEARBLEND : NOBLEND ;
     }
 
     int colorIndex = 0;
-    colorIndex = c_loopCount;
+    colorIndex = m_LedFocus;
     
-    if(cyckle)
+    if(m_LightEnable)
     {
-        for (int i = 0; i < c_LedCount; i++)
+        for (int i = 0; i < m_LedMax; i++)
         {
             if(revese)
-                c_cRGB[i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
+                m_cRGB[i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
             else
-                c_cRGB[c_LedCount - i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
+                m_cRGB[m_LedMax - i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
 
             colorIndex = colorIndex + 3;
         }
 
-        c_neoPix.show();
-        cyckle = false;
-        c_loopCount ++;
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
-    if(millis() >= c_waitTime)
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= cycleCount)
     {
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
-
-        if(c_loopCount >= cycleCount)
-        {
-            cyckle = false;
-            c_loopCount = 0;
-            c_waitTime = 0;
-            c_status = led_Finish;
-            resetLed(true);
-            buf = true;
-        }
+        resetLed(true);
+        buf = true;
     }
+    
     return buf;
 
 }
@@ -506,52 +441,40 @@ bool NeoPixcelCtrl::stripRainbow(uint8_t brightless,int delaytime,int cycleCount
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_loopCount = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
         currentPalette = RainbowStripeColors_p; 
         currentBlending = (doFade) ? LINEARBLEND : NOBLEND ;
     }
 
     int colorIndex = 0;
-    colorIndex = c_loopCount;
+    colorIndex = m_LedFocus;
     
-    if(cyckle)
+    if(m_LightEnable)
     {
-        for (int i = 0; i < c_LedCount; i++)
+        for (int i = 0; i < m_LedMax; i++)
         {
             if(revese)
-                c_cRGB[i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
+                m_cRGB[i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
             else
-                c_cRGB[c_LedCount - i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
+                m_cRGB[m_LedMax - i] = ColorFromPalette( currentPalette, colorIndex, brightless, currentBlending);
 
-            colorIndex = colorIndex + 3;// + c_loopCount;
+            colorIndex = colorIndex + 3;// + m_LedFocus;
         }
-        c_neoPix.show();
-        cyckle = false;
-        c_loopCount ++;
+
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
-    if(millis() >= c_waitTime)
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= cycleCount)
     {
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+        resetLed(true);
+        buf = true;
+    }   
 
-        if(c_loopCount >= cycleCount)
-        {
-            cyckle = false;
-            c_loopCount = 0;
-            c_waitTime = 0;
-
-            c_status = led_Finish;
-            resetLed(true);
-            buf = true;
-        }   
-    }
     return buf;
 }
 
@@ -566,38 +489,28 @@ bool NeoPixcelCtrl::glitterColor(int delaytime, int cycleCount)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-        c_status = led_Running;
-        c_neoPix.setBrightness(100);
-        c_loopCount = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+        this->startUp(100, delaytime);
     }
 
-    if(cyckle)
+    if(m_LightEnable)
     {
         setAllRGB(m_Red, m_Green, m_Blue);
         addGlitter(80);
-        c_neoPix.show();
-        cyckle = false;
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
-    if(millis() >= c_waitTime)
-    {
-        cyckle = true;
-        c_loopCount ++;
-        c_waitTime = millis() + delaytime;
+    m_LightEnable = this->countUpLedFocus(delaytime);
 
-        //　終了
-        if(c_loopCount >= cycleCount)
-        {   
-            c_loopCount = 0;
-            c_status = led_Finish;
-            cyckle = false;
-            buf = true;
-        }
+    //　終了
+    if(m_LedFocus >= cycleCount)
+    {   
+        this->resetLed(true);
+        buf = true;
     }
+
     return buf;
 }
 
@@ -613,48 +526,35 @@ bool NeoPixcelCtrl::bpm(uint8_t brightless, int delaytime,int cycleCount)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+        this->startUp(brightless, delaytime);
     }
 
     int colorIndex = 0;
-    colorIndex = c_loopCount;
+    colorIndex = m_LedFocus;
 
-    if(cyckle)
+    if(m_LightEnable)
     {
-        for ( int i = 0; i < c_LedCount; i++)
+        for ( int i = 0; i < m_LedMax; i++)
         { 
             uint8_t BeatsPerMinute = 62;
             uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
-            c_cRGB[i] = ColorFromPalette(PartyColors_p, colorIndex+(i*2), beat-colorIndex+(i*10));
+            m_cRGB[i] = ColorFromPalette(PartyColors_p, colorIndex+(i*2), beat-colorIndex+(i*10));
         }
 
-        c_neoPix.show();
-        cyckle = false;
-        c_loopCount ++;
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
-    if(millis() >= c_waitTime)
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= cycleCount)
     {
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
-
-        if(c_loopCount >= cycleCount)
-        {
-            cyckle = false;
-            c_loopCount = 0;
-            c_waitTime = 0;
-            c_status = led_Finish;
-            buf = true;
-            resetLed(true);
-        }
+        resetLed(true);
+        buf = true;
     }
+
     return buf;
 }
 
@@ -670,42 +570,31 @@ bool NeoPixcelCtrl::bpm(uint8_t brightless, int delaytime,int cycleCount)
 bool NeoPixcelCtrl::wipe(uint8_t brightless, int delaytime, bool revese)
 {
     bool buf = false;
-    if(c_status != led_Running)
-    {
 
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
     }
 
-    if(cyckle)
+    if(m_LightEnable)
     {
         if(revese)
-            c_cRGB[c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
+            m_cRGB[m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
         else
-            c_cRGB[c_LedCount - c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
+            m_cRGB[m_LedMax - m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
 
-        c_neoPix.show();
-        c_loopCount ++;
-        cyckle = false;
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
     }
 
-    if(millis() >= c_waitTime){
+    m_LightEnable = this->countUpLedFocus(delaytime);
 
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
-
-        if(c_loopCount >= c_LedCount)
-        {
-
-            c_loopCount = c_waitTime = 0;
-            cyckle = false;
-            c_status = led_Finish;
-            buf = true;
-        }
+    if(m_LedFocus >= m_LedMax)
+    {
+        this->resetLed(true);
+        buf = true;
     }
+
     return buf;
 }
 
@@ -720,56 +609,54 @@ bool NeoPixcelCtrl::collision(int delaytime)
     bool buf = false;
     static bool endFade = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-        c_status = led_Running;
-        c_neoPix.setBrightness(60);
-        c_loopCount = 0;
-        cyckle = true;
+        this->startUp(60, delaytime);
         endFade = false;
-        c_waitTime = millis() + delaytime;
     }
 
-    if(cyckle)
+    if(m_LightEnable)
     {
-        c_cRGB[c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
-        c_cRGB[c_LedCount - c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
-        c_neoPix.show();
-        c_loopCount ++;
-        cyckle = false;
+        m_cRGB[m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+        m_cRGB[m_LedMax - m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+        m_neoPix.show();
+        m_LedFocus ++;
+        m_LightEnable = false;
     }
 
-    if(c_LedCount / 2 + 1 <=  c_loopCount)
+    // 衝突
+    if(m_LedMax / 2 + 1 <=  m_LedFocus)
     {
         if(!endFade)
         {
-            c_neoPix.setBrightness(255);
-            c_neoPix.show();
-            c_waitTime = millis() + 1500;
-            cyckle = false; 
+            // 衝突後は明るくする
+            m_neoPix.setBrightness(255);
+            m_neoPix.show();
+            m_waitTime = millis() + 1500;
+            m_LightEnable = false; 
             endFade = true;
         }
 
-        for(int i = 0; i < c_LedCount; i++)
-            c_cRGB[i].nscale8(253);
+        // Fade 効果
+        for(int i = 0; i < m_LedMax; i++)
+            m_cRGB[i].nscale8(253);
         
-        c_neoPix.show();
+        m_neoPix.show();
 
-        if(millis() >= c_waitTime)
+        // LED 終了
+        if(this->passedTime(m_waitTime))
         {
-            c_loopCount = 0;
-            c_status = led_Finish;
+            resetLed(true);
             endFade =false;
             buf = true;
-            resetLed(true);
         }
     }
     else
     {
-        if(millis() >= c_waitTime && !endFade)
+        if(this->passedTime(m_waitTime) && !endFade)
         {
-            c_waitTime = millis() + delaytime;
-            cyckle = true;
+            m_waitTime = millis() + delaytime;
+            m_LightEnable = true;
         }
     }
 
@@ -788,62 +675,55 @@ bool NeoPixcelCtrl::charge(uint8_t brightless, int delaytime, bool revese)
 {
     bool buf = false;
 
-   if(c_status != led_Running)
-   {
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = chage_count = 0;
-        cyckle = true;
-        c_waitTime = millis() + delaytime;
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
     }
 
     // LEDを一つ点灯する
-    if(cyckle)
+    if(m_LightEnable)
     {
         if(revese)
-            c_cRGB[chage_count] = CRGB(m_Red, m_Green, m_Blue);
+            m_cRGB[m_chageCount] = CRGB(m_Red, m_Green, m_Blue);
         else
-            c_cRGB[c_LedCount - chage_count] = CRGB(m_Red, m_Green, m_Blue);
+            m_cRGB[m_LedMax - m_chageCount] = CRGB(m_Red, m_Green, m_Blue);
 
-        cyckle = false;
-        c_waitTime = millis() + delaytime;
+        m_LightEnable = false;
+        m_waitTime = millis() + delaytime;
     }
 
     // 表示
-    c_neoPix.show();
+    m_neoPix.show();
 
-    // 次回が来たら次のLEDへ移行
-    if(millis() >= c_waitTime)
+    // 時間が来たら次のLEDへ移行
+    if(this->passedTime(m_waitTime))
     {
         // 消灯
         if(revese)
-            c_cRGB[chage_count] = CRGB(0, 0, 0);
+            m_cRGB[m_chageCount] = CRGB(0, 0, 0);
         else
-            c_cRGB[c_LedCount - chage_count] = CRGB(0, 0, 0);
+            m_cRGB[m_LedMax - m_chageCount] = CRGB(0, 0, 0);
         
         // 更新
-        chage_count ++;
-        cyckle = true;
+        m_chageCount ++;
+        m_LightEnable = true;
     }
             
     // 積み重ねLEDの保持
-    if( (c_LedCount - c_loopCount) == chage_count)
+    if( (m_LedMax - m_LedFocus) == m_chageCount)
     {
-        c_loopCount++;
-        chage_count = 0;
+        m_LedFocus++;
+        m_chageCount = 0;
 
         if(revese) 
-            c_cRGB[c_LedCount - c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
+            m_cRGB[m_LedMax - m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
         else
-            c_cRGB[c_loopCount] = CRGB(m_Red, m_Green, m_Blue);
-
+            m_cRGB[m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
     }
 
-    if(c_loopCount >= c_LedCount)
+    if(m_LedFocus >= m_LedMax)
     {
-        c_loopCount = c_waitTime = 0;
-        cyckle = false;
-        c_status = led_Finish;
+        this->resetLed(true);
         buf = true;
     }
 
@@ -864,38 +744,23 @@ bool NeoPixcelCtrl::sinelon(uint8_t brightless,int delaytime)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = chage_count = 0;
-        c_waitTime = millis() + delaytime;
-        cyckle = false;
+        this->startUp(brightless, delaytime);
     }
 
-    for (int i = c_loopCount; i < c_LedCount; i++)
+    nscale8( m_cRGB, m_LedMax ,255 - 20);
+    int pos = beatsin16( 13, 0, m_LedMax-1 );
+    m_cRGB[pos] += CHSV( m_LedFocus, 255, 192);
+
+    m_neoPix.show();
+
+    this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
     {
-        nscale8( c_cRGB, c_LedCount ,255 - 20);
-        int pos = beatsin16( 13, 0, c_LedCount-1 );
-        c_cRGB[pos] += CHSV( c_loopCount, 255, 192);
-        break;
-    }
-
-    c_neoPix.show();
-
-
-    if(millis() >= c_waitTime)
-    {
-        c_loopCount ++;
-
-        if(c_loopCount >= c_LedCount)
-        {
-
-            c_status = led_Finish;
-            buf = true;
-            resetLed(true);
-        }
+        resetLed(true);
+        buf = true;
     }
 
     return buf;
@@ -913,38 +778,31 @@ bool NeoPixcelCtrl::juggle(uint8_t brightless,int delaytime, int cycleCount)
 {
     bool buf = false;
 
-    if(c_status != led_Running){
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = chage_count = 0;
-        c_waitTime = millis() + delaytime;
-        cyckle = false;
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
     }
 
-    nscale8( c_cRGB, c_LedCount ,255 - 20);
+    nscale8( m_cRGB, m_LedMax ,255 - 20);
 
     byte dothue = 0;
 
     for( int i = 0; i < 8; i++) 
     {
-        c_cRGB[beatsin16( i+7, 0, c_LedCount - 1 )] |= CHSV(dothue, 200, 255);
+        m_cRGB[beatsin16( i+7, 0, m_LedMax - 1 )] |= CHSV(dothue, 200, 255);
         dothue += 32;
     }
 
-    c_neoPix.show();
+    m_neoPix.show();
 
-    if(millis() >= c_waitTime)
+    // 遅延時間が経過したか確認
+    this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= cycleCount)
     {
-        c_loopCount ++;
-
-        if(c_loopCount >= cycleCount)
-        {
-           
-            c_status = led_Finish;
-            buf = true;
-            resetLed(true);
-        }
+        // LED　終了処理
+        resetLed(true);
+        buf = true;
     }
 
     return buf;
@@ -962,34 +820,26 @@ bool NeoPixcelCtrl::confetti(uint8_t brightless,int delaytime,int cycleCount)
 {
     bool buf = false;
 
-    if(c_status != led_Running)
+    if(m_Status != LedStatus::led_Running)
     {
-
-        c_status = led_Running;
-        c_neoPix.setBrightness(brightless);
-        c_loopCount = chage_count = 0;
-        c_waitTime = millis() + delaytime;
-        cyckle = false;
+        this->startUp(brightless, delaytime);
     }
     
-    nscale8( c_cRGB, c_LedCount ,255 - 20);
+    nscale8( m_cRGB, m_LedMax ,255 - 20);
 
-    int pos = random16(c_LedCount);
-    c_cRGB[pos] += CHSV( c_loopCount + random8(64), 200, 255);
+    int pos = random16(m_LedMax);
 
-    c_neoPix.show();
+    m_cRGB[pos] += CHSV( m_LedFocus + random8(64), 200, 255);
 
-    if(millis() >= c_waitTime)
+    m_neoPix.show();
+
+    this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= cycleCount)
     {
-        c_loopCount ++;
-
-        if(c_loopCount >= cycleCount)
-        {
-            
-            c_status = led_Finish;
-            buf = true;
-            resetLed(true);
-        }
+        // LED 終了処理
+        resetLed(true);
+        buf = true;
     }
 
     return buf;
@@ -1017,16 +867,16 @@ void NeoPixcelCtrl::SetColorPalette( uint8_t red, uint8_t green, uint8_t blue)
 }
 
 
-/**
+/** --------------------------------------------------
  * @brief  煌めき箇所をランダムにセット
  * @note   
  * @param  chanceOfGlitter: 
  * @retval None
- */
+ --------------------------------------------------*/
 void NeoPixcelCtrl::addGlitter(fract8 chanceOfGlitter)
 {
   if( random8() < chanceOfGlitter) {
-    c_cRGB[ random16(c_LedCount) ] += CRGB::White;
+    m_cRGB[ random16(m_LedMax) ] += CRGB::White;
   }
 }
 
@@ -1042,8 +892,8 @@ void NeoPixcelCtrl::addGlitter(fract8 chanceOfGlitter)
 -------------------------------------------------- */
 void NeoPixcelCtrl::setAllRGB(uint8_t red, uint8_t green, uint8_t blue)
 {
-    for (int i = 0; i < c_LedCount; i++){
-        c_cRGB[i] = CRGB(red, green, blue);
+    for (int i = 0; i < m_LedMax; i++){
+        m_cRGB[i] = CRGB(red, green, blue);
     }
 }
 
@@ -1057,10 +907,47 @@ void NeoPixcelCtrl::setAllRGB(uint8_t red, uint8_t green, uint8_t blue)
  --------------------------------------------------*/
 void NeoPixcelCtrl::resetLed(bool ledClear)
 {
-    c_status = led_Finish;
-    c_loopCount = 0;
-    cyckle = false;
+    m_Status = LedStatus::led_Finish;
+    m_LedFocus = m_chageCount = 0;
+    m_LightEnable = true;
+    m_waitTime = 0;
+
     if(ledClear)
         clear();
 }
 
+/** --------------------------------------------------
+ * @brief  LED フォーカスのカウントアップ
+ * @note   
+ * @param  dtTime: 設定時間
+ * @retval カウントアップOK　true
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::countUpLedFocus(int dtTime)
+{
+    bool countUp = false;
+
+    if(this->passedTime(m_waitTime))
+    {
+        m_LedFocus ++;
+        m_waitTime = millis() + dtTime;
+        countUp =  true;
+    }
+
+    return countUp;
+}
+
+
+/** --------------------------------------------------
+ * @brief  LEDエフェクト開始時の変数リセット
+ * @note   
+ * @param  brightless: 照度 
+ * @param  delaytime: 遅延時間 
+ * @retval None
+ --------------------------------------------------*/
+void NeoPixcelCtrl::startUp(uint8_t brightless, int delaytime)
+{
+    this->resetLed();
+    m_Status = LedStatus::led_Running;
+    m_neoPix.setBrightness(brightless);
+    m_waitTime = (delaytime == 0) ? 0 : millis() + delaytime ;
+}

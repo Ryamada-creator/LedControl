@@ -66,7 +66,7 @@ void setup()
 
     request = 0;
 
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     cout << F("\n\nStarting Led Effecter ... \n");
 
@@ -180,8 +180,8 @@ void ledLightning(uint8_t effectNo)
 
         // 七色に往復
         case 2:
-            if(!endEffectCount) endEffectCount = 20;
-            if(n_ctrl.cycron(150, 5))
+            if(!endEffectCount) endEffectCount = 10;
+            if(n_ctrl.cycron(150, 2))
                 exeCount ++;
             break;
 
@@ -202,7 +202,7 @@ void ledLightning(uint8_t effectNo)
         // 虹色
         case 5:
             if(!endEffectCount) endEffectCount = 2;
-            if(n_ctrl.rainbow(150))
+            if(n_ctrl.rainbow(150, 20))
                 exeCount ++;
             break;
 

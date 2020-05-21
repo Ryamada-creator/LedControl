@@ -41,24 +41,28 @@ enum ledColors
 class NeoPixcelCtrl
 {
     private:
+    
         // enum instance
-        LedStatus c_status;
+        LedStatus m_Status;
 
         ledColors col;
 
-        CRGBPalette16 currentPalette;
-        TBlendType    currentBlending;
+        CRGBPalette16   currentPalette;
+        TBlendType      currentBlending;
 
         // gloaval instance
-        uint64_t c_waitTime = 0;
-        int chage_count = 0;
-        int c_LedCount = 0;
-        int c_loopCount = 0;
-        bool cyckle = false;
+        uint64_t        m_waitTime = 0;
+        int             m_chageCount = 0;
+        int             m_LedMax = 0;
+        int             m_LedFocus = 0; 
+        bool            m_LightEnable = false;
 
-        uint8_t m_Red = 250;
-        uint8_t m_Green = 250;
-        uint8_t m_Blue = 250;
+        // 色　保持変数
+        uint8_t         m_Red = 250;
+        uint8_t         m_Green = 250;
+        uint8_t         m_Blue = 250;
+
+        bool            m_Cycron = false;
 
         // private Functions
         void setAllRGB(uint8_t red, uint8_t green, uint8_t blue);
@@ -66,11 +70,17 @@ class NeoPixcelCtrl
         void SetColorPalette( uint8_t red, uint8_t green, uint8_t blue);
         void addGlitter( fract8 chanceOfGlitter);
 
+        bool passedTime(uint64_t _time){ return ( millis() >= _time); }
+
+        bool countUpLedFocus(int dtTime);
+
+        void startUp(uint8_t brightless = 0,int delaytime = 0); 
+
     public:
     
         // class intstance
-        CFastLED c_neoPix;
-        CRGB *c_cRGB;
+        CFastLED m_neoPix;
+        CRGB *m_cRGB;
 
         void begin(CFastLED _neoLed, CRGB *_crgb, int lednum);
 
@@ -92,11 +102,11 @@ class NeoPixcelCtrl
         }
 
         LedStatus getStatus() { 
-            return c_status; 
+            return m_Status; 
         }
 
         uint8_t getBrightless() {
-            return c_neoPix.getBrightness(); 
+            return m_neoPix.getBrightness(); 
         }
 
 
@@ -115,7 +125,7 @@ class NeoPixcelCtrl
 
         bool turnRainbow(uint8_t brightless, int delaytime ,bool revese);
 
-        bool rainbow(uint8_t brightless);
+        bool rainbow(uint8_t brightless, int delaytime);
 
         bool rainbowCycle(uint8_t brightless, int delaytime,int cycleCount);
 
@@ -139,7 +149,7 @@ class NeoPixcelCtrl
 
         bool confetti(uint8_t brightless,int delaytime,int cycleCount);
 
-        void resetLed(bool ledClear);
+        void resetLed(bool ledClear = false);
 
 };
 
