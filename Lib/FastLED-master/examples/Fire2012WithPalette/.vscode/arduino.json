@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:nano",
+    "configuration": "cpu=atmega328old",
+    "sketch": "Fire2012WithPalette.ino",
+    "port": "/dev/cu.usbserial-14130"
+}

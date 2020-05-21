@@ -73,7 +73,7 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
 
     n_ctrl.begin(neop, leds, LED_NUM);
-    neop.addLeds<NEOPIXEL,LED_PIN>(leds, LED_NUM);
+    neop.addLeds<NEOPIXEL, LED_PIN>(leds, LED_NUM);
 
     n_ctrl.resetLed(true);
 
@@ -282,6 +282,18 @@ void ledLightning(uint8_t effectNo)
                 exeCount ++;
             break;
 
+        case 16:
+            if(!endEffectCount) endEffectCount = 5;
+            if(n_ctrl.fire(100, 80, 155, 15))
+                exeCount ++;
+            break;
+
+        case 17:
+            if(!endEffectCount) endEffectCount = 5;
+            if(n_ctrl.blueFire(100, 80, 155, 15))
+                exeCount ++;
+            break;
+
         // LED 消灯
         default:
             n_ctrl.resetLed(true);
@@ -377,7 +389,7 @@ void mainControllerInformation()
     const String effectMember[] = {"Blink", "Fade", "Cycron", "turnRainbow", "rainbowCycle",
                                    "rainbow", "stripOneColor", "stripRainbow", "glitterColor",
                                    "bpm", "wipe", "collision", "charge", "sinelon", "juggle", 
-                                   "confetti", "Reset LED"};
+                                   "confetti", "Fire", "BlueFire", "Reset LED"};
 
     uint8_t red = 0, green = 0, blue = 0;
     n_ctrl.getRGB(red, green, blue);

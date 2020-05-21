@@ -1,6 +1,6 @@
 #include <FastLED.h>
 
-#define LED_PIN     5
+#define LED_PIN     4
 #define COLOR_ORDER GRB
 #define CHIPSET     WS2811
 #define NUM_LEDS    30
@@ -11,39 +11,11 @@
 bool gReverseDirection = false;
 
 CRGB leds[NUM_LEDS];
-
-// Fire2012 with programmable Color Palette
-//
-// This code is the same fire simulation as the original "Fire2012",
-// but each heat cell's temperature is translated to color through a FastLED
-// programmable color palette, instead of through the "HeatColor(...)" function.
-//
-// Four different static color palettes are provided here, plus one dynamic one.
-// 
-// The three static ones are: 
-//   1. the FastLED built-in HeatColors_p -- this is the default, and it looks
-//      pretty much exactly like the original Fire2012.
-//
-//  To use any of the other palettes below, just "uncomment" the corresponding code.
-//
-//   2. a gradient from black to red to yellow to white, which is
-//      visually similar to the HeatColors_p, and helps to illustrate
-//      what the 'heat colors' palette is actually doing,
-//   3. a similar gradient, but in blue colors rather than red ones,
-//      i.e. from black to blue to aqua to white, which results in
-//      an "icy blue" fire effect,
-//   4. a simplified three-step gradient, from black to red to white, just to show
-//      that these gradients need not have four components; two or
-//      three are possible, too, even if they don't look quite as nice for fire.
-//
-// The dynamic palette shows how you can change the basic 'hue' of the
-// color palette every time through the loop, producing "rainbow fire".
-
 CRGBPalette16 gPal;
 
 void setup() {
   delay(3000); // sanity delay
-  FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+  FastLED.addLeds<NEOPIXEL, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
 
   // This first palette is the basic 'black body radiation' colors,

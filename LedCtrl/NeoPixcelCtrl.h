@@ -48,6 +48,7 @@ class NeoPixcelCtrl
         ledColors col;
 
         CRGBPalette16   currentPalette;
+        CRGBPalette16   firePalette;
         TBlendType      currentBlending;
 
         // gloaval instance
@@ -64,6 +65,8 @@ class NeoPixcelCtrl
 
         bool            m_Cycron = false;
 
+        byte            *heat;
+
         // private Functions
         void setAllRGB(uint8_t red, uint8_t green, uint8_t blue);
         void setHeatColor(uint8_t temperature , int heatNum);
@@ -75,6 +78,8 @@ class NeoPixcelCtrl
         bool countUpLedFocus(int dtTime);
 
         void startUp(uint8_t brightless = 0,int delaytime = 0); 
+
+        void setFireColor(uint8_t cooling, uint8_t spaking, uint8_t fireColor, bool revese = true);
 
     public:
     
@@ -148,6 +153,12 @@ class NeoPixcelCtrl
         bool juggle(uint8_t brightless,int delaytime, int cycleCount);
 
         bool confetti(uint8_t brightless,int delaytime,int cycleCount);
+
+        bool fire(uint8_t brightless, uint8_t cooling, uint8_t spaking, 
+                            int delaytime, int cycleCount = 400, bool revese = true);
+
+        bool blueFire(uint8_t brightless, uint8_t cooling, uint8_t spaking, 
+                            int delaytime, int cycleCount = 400, bool revese = true);
 
         void resetLed(bool ledClear = false);
 

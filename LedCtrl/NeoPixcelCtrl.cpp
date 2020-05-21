@@ -846,6 +846,147 @@ bool NeoPixcelCtrl::confetti(uint8_t brightless,int delaytime,int cycleCount)
 }
 
 
+
+/** --------------------------------------------------
+ * @brief  炎をイメージしたLEDエフェクト
+ * @note   
+ * @param  cooling: 炎の高さ　数値が高いほど　高さは低い
+ * @param  spaking: 煌めき具合
+ * @param  delaytime: 遅延時間
+ * @param  revese: 点灯芳香
+ * @retval 終了したら True
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::fire(uint8_t brightless, uint8_t cooling, 
+                                uint8_t spaking, int delaytime, int cycleCount, bool revese)
+{
+
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+        setFireColor(cooling, spaking, 0, revese);
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    m_neoPix.show();
+
+    if(m_LedFocus >= cycleCount)
+    {
+        // LED 終了処理
+        resetLed();
+        buf = true;
+    }
+
+    return buf;
+}
+
+
+/** --------------------------------------------------
+ * @brief  青い炎をイメージしたLEDエフェクト
+ * @note   
+ * @param  cooling: 炎の高さ　数値が高いほど　高さは低い
+ * @param  spaking: 煌めき具合
+ * @param  delaytime: 遅延時間
+ * @param  revese: 点灯芳香
+ * @retval 終了したら True
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::blueFire(uint8_t brightless, uint8_t cooling,
+                                uint8_t spaking, int delaytime, int cycleCount, bool revese)
+{
+
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+        setFireColor(cooling, spaking, 1, revese);
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    m_neoPix.show();
+
+    if(m_LedFocus >= cycleCount)
+    {
+        // LED 終了処理
+        resetLed();
+        buf = true;
+    }
+
+    return buf;
+}
+
+
+/** --------------------------------------------------
+ * @brief  炎カラーをセット
+ * @note   
+ * @param  cooling: 燃え上がりたかさ調整　
+ * @param  spaking: 煌めき具合調整
+ * @param  fireColor: 0 →　赤　1 →　青　
+ * @param  revese: 方向
+ * @retval None
+ --------------------------------------------------*/
+void NeoPixcelCtrl::setFireColor(uint8_t cooling, uint8_t spaking, uint8_t fireColor, bool revese)
+{
+
+    if(fireColor == 0)
+    {
+        firePalette = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
+    }
+    else
+    {
+        // 青い炎
+        firePalette = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
+    }
+    
+    this->heat = new byte[m_LedMax];
+
+    for( int i = 0; i < m_LedMax; i++) 
+    {
+      this->heat[i] = qsub8( this->heat[i],  random8(0, ((cooling * 10) / m_LedMax) + 2));
+    }
+  
+    for( int k= m_LedMax - 1; k >= 2; k--) 
+    {
+      this->heat[k] = (this->heat[k - 1] + this->heat[k - 2] + this->heat[k - 2] ) / 3;
+    }
+    
+    if( random8() < spaking ) 
+    {
+      int y = random8(7);
+      this->heat[y] = qadd8( this->heat[y], random8(160,255) );
+    }
+
+    for( int j = 0; j < m_LedMax; j++)
+     {
+        byte colorindex = scale8( this->heat[j], 240);
+        CRGB color = ColorFromPalette( firePalette, colorindex);
+        int pixelnumber;
+
+        if( revese ) 
+        {
+            pixelnumber = (m_LedMax - 1) - j;
+        } 
+        else 
+        {
+            pixelnumber = j;
+        }
+
+        m_cRGB[pixelnumber] = color;
+    }
+
+    delete this->heat;
+
+}
+
+
+
 /**　--------------------------------------------------
  * @brief  カラーパレット
  * @note   
