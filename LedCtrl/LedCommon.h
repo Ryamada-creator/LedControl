@@ -7,7 +7,7 @@
 /* -------------------------------------------------------------------------- */
 #define _DEBUG_MASSEGE  (0)                     // 有効 : 1 シリアル文字列を表示
 #define _DEBUG_LED_INFO (1)                     // 有効 : 1 LEDの各種設定、情報を表示 
-#define COMMAND_LIST    (28)                    // コマンド数 
+#define COMMAND_LIST    (35)                    // コマンド数 
 #define LED_PIN         (4)                    // for arduino
 //#define LED_PIN         (A4)
 #define LED_NUM         (60)                    // LED 点灯個数

@@ -140,7 +140,7 @@ bool NeoPixcelCtrl::blink(uint8_t brightless, int delaytime)
 
     if(m_LedFocus >= 2)
     {
-        resetLed(true);
+        resetLed();
         buf = true;
     }
     
@@ -750,7 +750,7 @@ bool NeoPixcelCtrl::sinelon(uint8_t brightless,int delaytime)
     }
 
     nscale8( m_cRGB, m_LedMax ,255 - 20);
-    int pos = beatsin16( 13, 0, m_LedMax-1 );
+    int pos = beatsin16( 13, 0, m_LedMax - 1 );
     m_cRGB[pos] += CHSV( m_LedFocus, 255, 192);
 
     m_neoPix.show();
@@ -922,6 +922,378 @@ bool NeoPixcelCtrl::blueFire(uint8_t brightless, uint8_t cooling,
     return buf;
 }
 
+/**　--------------------------------------------------
+ * @brief  LEDの柔らかな移動
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime:　遅延時間 
+ * @retval 終了　→　True
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::scanner(uint8_t brightless,int delaytime)
+{
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    nscale8( m_cRGB, m_LedMax ,255 - 20);
+    int pos = beatsin16( 13, 0, m_LedMax - 1 );
+    m_cRGB[pos] += CRGB(m_Red, m_Green, m_Blue);
+
+    m_neoPix.show();
+
+    this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
+    {
+        resetLed(true);
+        buf = true;
+    }
+
+    return buf;
+}
+
+/** --------------------------------------------------
+ * @brief  シフト点灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @param  revese: 方向
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+ bool NeoPixcelCtrl::Shift(uint8_t brightless, int delaytime, bool revese)
+ {
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+    {
+        setAllRGB(0, 0, 0);
+
+        if(revese)
+        {
+            m_cRGB[m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+            if(m_LedFocus != 0)
+                m_cRGB[m_LedFocus - 1 ] = CRGB(m_Red, m_Green, m_Blue);
+        }
+        else
+        {
+            m_cRGB[m_LedMax - m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+            if(m_LedFocus != m_LedMax)
+                m_cRGB[m_LedMax - (m_LedFocus + 1)] = CRGB(m_Red, m_Green, m_Blue);
+        }
+
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
+    }
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
+    {
+        this->resetLed();
+        buf = true;
+    }
+
+    return buf;
+    
+ }
+
+
+/** --------------------------------------------------
+ * @brief  シフト消灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @param  revese: 方向
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+ bool NeoPixcelCtrl::blackShift(uint8_t brightless, int delaytime, bool revese)
+ {
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+    {
+        setAllRGB(m_Red, m_Green, m_Blue);
+
+        if(revese)
+        {
+            m_cRGB[m_LedFocus] = CRGB::Black;
+            if(m_LedFocus != 0)
+                m_cRGB[m_LedFocus - 1 ] = CRGB::Black;
+        }
+        else
+        {
+            m_cRGB[m_LedMax - m_LedFocus] = CRGB::Black;
+            if(m_LedFocus != m_LedMax)
+                m_cRGB[m_LedMax - (m_LedFocus + 1)] = CRGB::Black;
+        }
+
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
+    }
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
+    {
+        this->resetLed();
+        buf = true;
+    }
+
+    return buf;
+    
+ }
+
+/** --------------------------------------------------
+ * @brief  双方向のシフト点灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+ bool NeoPixcelCtrl::dual_Shift(uint8_t brightless, int delaytime)
+ {
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+    {
+        setAllRGB(0, 0, 0);
+
+        m_cRGB[m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+
+        if(m_LedFocus != 0)
+            m_cRGB[m_LedFocus - 1 ] = CRGB(m_Red, m_Green, m_Blue);
+
+        m_cRGB[m_LedMax - m_LedFocus] = CRGB(m_Red, m_Green, m_Blue);
+
+        if(m_LedFocus != m_LedMax)
+            m_cRGB[m_LedMax - (m_LedFocus + 1)] = CRGB(m_Red, m_Green, m_Blue);
+
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
+    }
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
+    {
+        this->resetLed();
+        buf = true;
+    }
+
+    return buf;
+ }
+
+
+/** --------------------------------------------------
+ * @brief  双方向のシフト消灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+ bool NeoPixcelCtrl::dual_blackShift(uint8_t brightless, int delaytime)
+ {
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, delaytime);
+    }
+
+    if(m_LightEnable)
+    {
+        setAllRGB(m_Red, m_Green, m_Blue);
+
+        m_cRGB[m_LedFocus] = CRGB::Black;
+
+        if(m_LedFocus != 0)
+            m_cRGB[m_LedFocus - 1 ] = CRGB::Black;
+        
+        m_cRGB[m_LedMax - m_LedFocus] = CRGB::Black;
+
+        if(m_LedFocus != m_LedMax)
+            m_cRGB[m_LedMax - (m_LedFocus + 1)] = CRGB::Black;
+
+        m_neoPix.show();
+        m_waitTime = millis() + delaytime;
+    }
+
+    m_LightEnable = this->countUpLedFocus(delaytime);
+
+    if(m_LedFocus >= m_LedMax)
+    {
+        this->resetLed();
+        buf = true;
+    }
+
+    return buf;
+ }
+
+ /** --------------------------------------------------
+ * @brief  往復でシフト 点灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @retval 完了　true
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::round_Shift(uint8_t brightless, int delaytime)
+{
+     bool buf = false;
+
+    if(m_Status != LedStatus::led_Running){
+        m_ShiftStep = 0;
+    }
+
+    for (uint8_t i = m_ShiftStep; i < 2; i++)
+    {
+        if(this->Shift(brightless, delaytime, i)) {
+            m_ShiftStep ++;
+            m_Status = LedStatus::led_Running;
+        }
+        break;
+    }
+
+    if(m_ShiftStep == 2) {
+        this->resetLed();
+        m_ShiftStep = 0;
+        buf = true;
+    }
+
+    return buf;
+}
+
+/** --------------------------------------------------
+ * @brief  往復でシフト 消灯
+ * @note   
+ * @param  brightless: 照度
+ * @param  delaytime: 遅延時間
+ * @retval 完了　true
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::round_blackShift(uint8_t brightless, int delaytime)
+{
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running) {
+        m_ShiftStep = 0;
+    }
+
+    for (uint8_t i = m_ShiftStep; i < 2; i++)
+    {
+        if(this->blackShift(brightless, delaytime, i)) {
+            m_ShiftStep ++;
+            m_Status = LedStatus::led_Running;
+        }
+        break;
+    }
+
+    if(m_ShiftStep == 2) {
+        this->resetLed();
+        m_ShiftStep = 0;
+        buf = true;
+    }
+
+    return buf;
+}
+
+/** --------------------------------------------------
+ * @brief  フラッシュを繰り返す
+ * @note   
+ * @param  brightless: 照度
+ * @param  flashCount: 点滅回数
+ * @param  waittime: フラッシュ後の待機時間
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::strobe(uint8_t brightless, uint8_t flashCount, int flashDelayTime , int waittime)
+{
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running && !m_doStrobe) {
+        m_flashCount = 0;
+    }
+
+    if(m_LightEnable)
+    {
+        if(this->blink(brightless, flashDelayTime))
+        {
+            m_flashCount++;
+
+            if(flashCount == m_flashCount)
+            {
+                m_LightEnable = false;
+                m_waitTime = millis() + waittime;
+            }
+        }
+        m_doStrobe = true;
+    }
+    else
+    {
+        if(this->passedTime(m_waitTime))
+        {
+            resetLed();
+            buf = true;
+        }
+    }
+
+    return buf;
+
+}
+
+
+/** --------------------------------------------------
+ * @brief  ランダムに色を指定し、点灯で固定
+ * @note   
+ * @param  brightless: 照度
+ * @param  waittime: 固定時間
+ * @retval 完了したらTrue
+ --------------------------------------------------*/
+bool NeoPixcelCtrl::interior(uint8_t brightless, int waittime)
+{
+    bool buf = false;
+
+    if(m_Status != LedStatus::led_Running)
+    {
+        this->startUp(brightless, waittime);
+    }
+
+    if(m_LightEnable)
+    {
+ 
+        for (uint32_t i = 0; i < m_LedMax; i++)
+        {
+            m_cRGB[i] = ColorFromPalette(PartyColors_p, random8(0,255), random8(0,255));
+        }
+        
+        m_neoPix.show();
+        m_LightEnable = false;
+    }
+
+    if(this->passedTime(m_waitTime))
+    {
+        this->resetLed();
+        buf = true;
+    }
+
+    return buf;
+    
+}
 
 /** --------------------------------------------------
  * @brief  炎カラーをセット
@@ -935,6 +1307,8 @@ bool NeoPixcelCtrl::blueFire(uint8_t brightless, uint8_t cooling,
 void NeoPixcelCtrl::setFireColor(uint8_t cooling, uint8_t spaking, uint8_t fireColor, bool revese)
 {
 
+    random16_add_entropy( random());
+
     if(fireColor == 0)
     {
         firePalette = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
@@ -944,7 +1318,7 @@ void NeoPixcelCtrl::setFireColor(uint8_t cooling, uint8_t spaking, uint8_t fireC
         // 青い炎
         firePalette = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
     }
-    
+   
     this->heat = new byte[m_LedMax];
 
     for( int i = 0; i < m_LedMax; i++) 
@@ -964,7 +1338,7 @@ void NeoPixcelCtrl::setFireColor(uint8_t cooling, uint8_t spaking, uint8_t fireC
     }
 
     for( int j = 0; j < m_LedMax; j++)
-     {
+    {
         byte colorindex = scale8( this->heat[j], 240);
         CRGB color = ColorFromPalette( firePalette, colorindex);
         int pixelnumber;
@@ -1050,6 +1424,7 @@ void NeoPixcelCtrl::resetLed(bool ledClear)
 {
     m_Status = LedStatus::led_Finish;
     m_LedFocus = m_chageCount = 0;
+    m_doStrobe = false;
     m_LightEnable = true;
     m_waitTime = 0;
 

@@ -3,7 +3,7 @@
 *   概　要： NeoPixcel (WS2812B)を使用したLED点灯クラス バージョン_2 0 0
 *　　　　　 ライブラリ ⇛ FastLEDを使用
 *　　
-*　 詳　細： effect 16個まで搭載
+*　 詳　細： effect 27個まで搭載
 *　　　　　 処理自体はすべて毎回mainLoopに戻すようにしているため
 *         ぐに戻ってくるようにしている（おそくても6msで戻るはず)
 *         
@@ -15,6 +15,7 @@
 
 #define DEBUG_LED (0)
 
+#include <Arduino.h>
 #include <FastLED.h>
 
 enum LedStatus 
@@ -59,11 +60,16 @@ class NeoPixcelCtrl
         bool            m_LightEnable = false;
 
         // 色　保持変数
-        uint8_t         m_Red = 250;
-        uint8_t         m_Green = 250;
+        uint8_t         m_Red = 100;
+        uint8_t         m_Green = 50;
         uint8_t         m_Blue = 250;
 
+        uint8_t         m_flashCount = 0;
+        bool            m_doStrobe  = false;
+
         bool            m_Cycron = false;
+
+        uint8_t         m_ShiftStep = 0;
 
         byte            *heat;
 
@@ -155,10 +161,28 @@ class NeoPixcelCtrl
         bool confetti(uint8_t brightless,int delaytime,int cycleCount);
 
         bool fire(uint8_t brightless, uint8_t cooling, uint8_t spaking, 
-                            int delaytime, int cycleCount = 400, bool revese = true);
+                            int delaytime, int cycleCount = 400, bool revese = false);
 
         bool blueFire(uint8_t brightless, uint8_t cooling, uint8_t spaking, 
-                            int delaytime, int cycleCount = 400, bool revese = true);
+                            int delaytime, int cycleCount = 400, bool revese = false);
+
+        bool scanner(uint8_t brightless,int delaytime);
+
+        bool Shift(uint8_t brightless, int delaytime, bool revese);
+
+        bool blackShift(uint8_t brightless, int delaytime, bool revese);
+
+        bool round_Shift(uint8_t brightless, int delaytime);
+
+        bool round_blackShift(uint8_t brightless, int delaytime);
+
+        bool dual_Shift(uint8_t brightless, int delaytime);
+
+        bool dual_blackShift(uint8_t brightless, int delaytime);
+
+        bool strobe(uint8_t brightless, uint8_t flashCount, int flashDelayTime , int waittime);
+
+        bool interior(uint8_t brightless, int waittime);
 
         void resetLed(bool ledClear = false);
 

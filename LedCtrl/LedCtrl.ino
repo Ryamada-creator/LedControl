@@ -1,22 +1,27 @@
 
-
 /* _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
-
-    [作成]　　　R yamda
-    [作成日]　　2020/5/25
     
     [概要]
         シリアルコマンドにて　LEDを点灯させるソフト
     
-        シリアルコマンド数　Max:25個
-        コマンドは全て数値で送信する事(　0 〜　25 )
+        シリアルコマンド数　Max:35個
+        コマンドは全て数値で送信する事
 
     [コマンドリスト]
+     < 0 ~ 9 >
     　・　カラーセレクト
-        0  : 黒   1  : 赤   2 : オレンジ　  3 : 黄色
-        4  : 緑   5  : 青   6 : 藍        7 : ピンク 
-        8  : 白   9  : 紫
+        0  : 黒   
+        1  : 赤   
+        2  : オレンジ　  
+        3  : 黄色
+        4  : 緑   
+        5  : 青   
+        6  : 藍        
+        7  : ピンク 
+        8  : 白   
+        9  : 紫
 
+     < 10 ~ 35 >
     　・　エフェクトリスト
         10 : Blink(点滅)　 　　　
         11 : Fade(点灯→消灯)　 　　
@@ -34,7 +39,16 @@
         23 : sinelon(小さな炎)  
         24 : juggle(ジャグリング)
         25 : confetti(パラパラ七色) 
-        26 : 消灯
+        26 : fire(炎)
+        27 : blueFire(青い炎)
+        28 : scanner 単体のLED浮遊
+        29 : round_Shift 往復シフトカラー
+        30 : round_blackShift　往復消灯シフト
+        31 : dual_Shift  双方向のLEDシフト
+        32 : dual_blackShift　双方向の消灯シフト
+        33 : strobe フラッシュ
+        34 : interior インテリア
+        35 : 消灯
 
         TODO: Seeeduino 対応可 (Nano では動作確認済み)
 
@@ -55,17 +69,17 @@ NeoPixcelCtrl n_ctrl;                           // NeoPixcelCtrl Class
 /* -------------------------------------------------------------------------- */
 /*                                   グローバル変数                                  */
 /* -------------------------------------------------------------------------- */
-uint8_t request = 9;                            // LED アクション選択番号
-bool led_Enable = false;                        // LED 点灯許可
+uint8_t g_Request = 0;                          // LED アクション選択番号
+bool g_ledEnable = true;                        // LED 点灯許可
+
+enum LED_MODE {Exhibition, Remote};             // Exhibition : 定期的にエフェクトを自動で変更
+enum LED_MODE g_Mode = LED_MODE::Exhibition; 
 
 /* -------------------------------------------------------------------------- */
 /*                                   セットアップ                                   */
 /* -------------------------------------------------------------------------- */
 void setup() 
 {
-
-    request = 0;
-
     Serial.begin(115200);
 
     cout << F("\n\nStarting Led Effecter ... \n");
@@ -85,15 +99,19 @@ void setup()
 /* -------------------------------------------------------------------------- */
 void loop()
 {  
-
     // シリアル通信確認
     checkUART();
 
     // LED Effect 実行
-    if(led_Enable) {
-        ledLightning(request);
+    if(g_ledEnable) 
+    {
+        if(ledLightning(g_Request) && g_Mode == LED_MODE::Exhibition)
+        {   
+            g_Request++;
+            if(g_Request == 25)
+                g_Request = 0;
+        }
     }
-
 }
 
 /** --------------------------------------------------
@@ -116,42 +134,70 @@ void checkUART()
     if(str == "")
         return;
 
-
     #if (_DEBUG_MASSEGE != 0)
         cout << F("[ Serial ] Command : ") << str;
     #endif
 
-
-    uint8_t actNo = str.toInt(); 
-
-    // 数値であるか、コマンドリストに対応しているか
-    if(!isDigit(str[0]) || actNo > COMMAND_LIST)
+    // シリアルコマンドフロー
+    if(UARTEvent(str))
     {
+        // LED の情報を表示
+        mainControllerInformation();
+    }
 
-        #if (_DEBUG_MASSEGE != 0)
-            cout << F(" -> Unkhown Command\n");
-        #endif
+}
 
-        return;
+/** --------------------------------------------------
+ * @brief  シリアルコマンドによるフロー
+ * @note   
+ * @param  str: シリアルコマンド
+ * @retval 該当するコマンドがあれば True
+ --------------------------------------------------*/
+bool UARTEvent(String str)
+{
+    bool ret = true;
+
+    // Exhibition モード LEDエフェクトを順次変更
+    if(str == "ex")
+    {
+        g_Mode = LED_MODE::Exhibition;
+        g_Request = 0;
+        g_ledEnable = true;
+    }
+    // Remote コマンド
+    else if(isDigit(str[0]))
+    {
+        uint8_t actNo = str.toInt(); 
+
+        // 数値であるか、コマンドリストに対応しているか
+        if(actNo <= COMMAND_LIST)
+        {
+            // シリアルコマンドに応じてLED設定変更
+            actionCommand(actNo);
+        }
+    }
+    else
+    {
+        cout << F(" -> Unkhown Command\n");
+        ret = false;
     }
 
     cout << endl;
 
-    // シリアルコマンドに応じてLED設定変更
-    actionCommand(actNo);
-
+    return ret;
 }
-
 
 /** --------------------------------------------------
  * @brief  LED　エフェクト　リスト
  * @note   
- * @param  &patturnNo: 実行したいエフェクトナンバー
- * @retval None
+ * @param  effectNo: 実行したいエフェクトナンバー
+ * @retval LED エフェクト完了したらTrue
  --------------------------------------------------*/
-void ledLightning(uint8_t effectNo)
+bool ledLightning(uint8_t effectNo)
 {
     static uint8_t prevEffectNo = 100, endEffectCount = 0, exeCount = 0;
+
+    bool led_Complete = false;
 
     // エフェクトが変更された時は初期化処理
     if(effectNo != prevEffectNo)
@@ -173,7 +219,7 @@ void ledLightning(uint8_t effectNo)
 
         // 点灯　→　消灯
         case 1:
-            if(!endEffectCount) endEffectCount = 4;
+            if(!endEffectCount) endEffectCount = 6;
             if(n_ctrl.fade(150, 2))
                 exeCount ++;
             break;
@@ -194,7 +240,7 @@ void ledLightning(uint8_t effectNo)
 
         // 虹色シフト
         case 4:
-            if(!endEffectCount) endEffectCount = 2;
+            if(!endEffectCount) endEffectCount = 1;
             if(n_ctrl.rainbowCycle(150, 30, 500))
                 exeCount ++;
             break;
@@ -253,7 +299,7 @@ void ledLightning(uint8_t effectNo)
 
         // 積み重ね
         case 12:
-            if(!endEffectCount) endEffectCount = 1;
+            if(!endEffectCount) endEffectCount = 3;
             if(n_ctrl.charge(150, 2, true))
             {
                 n_ctrl.resetLed(true);
@@ -263,8 +309,8 @@ void ledLightning(uint8_t effectNo)
 
         // 蕩々と　小さな炎の様に
         case 13:
-            if(!endEffectCount) endEffectCount = 50;
-            if(n_ctrl.sinelon(150,0))
+            if(!endEffectCount) endEffectCount = 100;
+            if(n_ctrl.sinelon(150,4))
                 exeCount ++;
             break;
 
@@ -282,22 +328,74 @@ void ledLightning(uint8_t effectNo)
                 exeCount ++;
             break;
 
+        // 炎
         case 16:
-            if(!endEffectCount) endEffectCount = 5;
-            if(n_ctrl.fire(100, 80, 155, 15))
+            if(!endEffectCount) endEffectCount = 3;
+            if(n_ctrl.fire(200, 55, 120, 0))
                 exeCount ++;
             break;
 
+        // 青い炎
         case 17:
+            if(!endEffectCount) endEffectCount = 3;
+            if(n_ctrl.blueFire(200, 55, 120, 0))
+                exeCount ++;
+            break;
+
+        // scanner LEDの柔らかな移動
+        case 18:
+            if(!endEffectCount) endEffectCount = 100;
+            if(n_ctrl.scanner(150, 0))
+                exeCount ++;
+            break;
+
+        //　往復シフト
+        case 19:
+            if(!endEffectCount) endEffectCount = 8;
+            if(n_ctrl.round_Shift(150, 15))
+                exeCount ++;
+            break;
+
+        //　往復消灯シフト
+        case 20:
+            if(!endEffectCount) endEffectCount = 8;
+            if(n_ctrl.round_blackShift(150, 15))
+                exeCount ++;
+            break;
+
+        // 双方向のシフト
+        case 21:
             if(!endEffectCount) endEffectCount = 5;
-            if(n_ctrl.blueFire(100, 80, 155, 15))
+            if(n_ctrl.dual_Shift(150, 15))
+                exeCount ++;
+            break;
+
+        // 双方向の消灯シフト
+        case 22:
+            if(!endEffectCount) endEffectCount = 5;
+            if(n_ctrl.dual_blackShift(150, 15))
+                exeCount ++;
+            break;
+
+
+        // ストロボ　フラッシュを繰り返し
+        case 23:
+            if(!endEffectCount) endEffectCount = 4;
+            if(n_ctrl.strobe(200, 3, 40, 1000))
+                exeCount ++;
+            break;
+
+        // インテリア
+        case 24:
+            if(!endEffectCount) endEffectCount = 3;
+            if(n_ctrl.interior(200, 3000))
                 exeCount ++;
             break;
 
         // LED 消灯
         default:
             n_ctrl.resetLed(true);
-            led_Enable = false;
+            g_ledEnable = false;
             break;
     }
 
@@ -307,7 +405,10 @@ void ledLightning(uint8_t effectNo)
         // リセット処理
         n_ctrl.resetLed(true);
         endEffectCount = exeCount = 0;
+        led_Complete = true;
     }
+
+    return led_Complete;
 
 }
 
@@ -336,15 +437,13 @@ void actionCommand(const uint8_t &actionNo)
     {
         n_ctrl.resetLed(true);
 
-        // LED 許可
-        led_Enable = ( COMMAND_LIST == actionNo ) ? false : true;
-        request = actionNo - 10;
-    }
+        // Remote へ移行
+        g_Mode = LED_MODE::Remote;
 
-    // LED の情報を表示
-    #if (_DEBUG_LED_INFO != 0)
-        mainControllerInformation();
-    #endif
+        // LED 許可
+        g_ledEnable = ( COMMAND_LIST == actionNo ) ? false : true;
+        g_Request = actionNo - 10;
+    }
 }
 
 
@@ -389,17 +488,21 @@ void mainControllerInformation()
     const String effectMember[] = {"Blink", "Fade", "Cycron", "turnRainbow", "rainbowCycle",
                                    "rainbow", "stripOneColor", "stripRainbow", "glitterColor",
                                    "bpm", "wipe", "collision", "charge", "sinelon", "juggle", 
-                                   "confetti", "Fire", "BlueFire", "Reset LED"};
+                                   "confetti", "Fire", "BlueFire","scanner","round_Shift",
+                                   "round_blackShift", "dual_Shift", "dual_blackShift","Strobe", 
+                                   "interior", "Reset LED"};
 
     uint8_t red = 0, green = 0, blue = 0;
     n_ctrl.getRGB(red, green, blue);
 
     cout << F("\n< LED Information >\n");
 
-    cout << F(" Effect No.  : ") << request << endl
-         << F(" Effect Name : ") << effectMember[request] << endl
+    cout << F(" Effect No.  : ") << g_Request << endl
+         << F(" Effect Name : ") << effectMember[g_Request] << endl
          << F(" LED RGB     : ") 
          << red<< F(", ") << green << F(", ") << blue << endl
-         << F(" LED Enable  : ") << String(( led_Enable ) ? "ON\n" : "OFF\n")
+         << F(" LED Enable  : ") << String(( g_ledEnable ) ? "ON\n" : "OFF\n")
+         << F(" LED Mode    : ") 
+         << String( (g_Mode==LED_MODE::Exhibition) ? "Exhibition\n" : "Remote\n")
          << endl;
 }
