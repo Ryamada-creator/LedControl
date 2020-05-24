@@ -1,6 +1,0 @@
-{
-    "board": "arduino:avr:nano",
-    "sketch": "LedCtrl/LedCtrl.ino",
-    "port": "/dev/cu.usbserial-14130",
-    "configuration": "cpu=atmega328old"
-}
