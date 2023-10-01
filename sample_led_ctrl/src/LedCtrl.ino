@@ -60,8 +60,8 @@ _/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/*/
 #include "INA226.h"
 #include "Wire.h"
 
-#include "LedCommon.h"
-#include "NeoPixcelCtrl.h"
+#include "LedCtrlSample/NeoPixcelCtrl.h"
+#include "LedCtrlSample/LedCommon.h"
 
 /* -------------------------------------------------------------------------- */
 /*                                 クラス　インスタンス                                 */
@@ -127,14 +127,9 @@ void loop()
         }
     }
 
-    Serial.print(INA.getBusVoltage(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getShuntVoltage_mV(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getCurrent_mA(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getPower_mW(), 3);
-    Serial.println();
+    printf("%fV,%fA\n", 
+           static_cast<double>(INA.getShuntVoltage_mV()),
+           static_cast<double>(INA.getCurrent_mA()));
 }
 
 /** --------------------------------------------------
